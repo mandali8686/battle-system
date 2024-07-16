@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Battle System</title>
+    <style>
+        body {
+            margin-left: 10vw;
+            margin-right: 20vw;
+        }
+        .form-container {
+            display: flex;
+            justify-content: space-between;
+        }
+        .form-container form {
+            width: 45%;
+        }
+        .battle-container {
+            display: flex;
+            justify-content: space-between;
+        }
+        #battle-panel, #battle-info {
+            width: 45%;
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+        .grid-container {
+            display: grid;
+            grid-template-columns: auto auto;
+        }
+    </style>
+    <script>
+        function addSkill() {
+            const skillContainer = document.getElementById('skill-container');
+            const skillCount = skillContainer.children.length;
+            const newSkill = document.createElement('div');
+            newSkill.innerHTML = `
+                <label for="skill_name_${skillCount}">技能名称:</label>
+                <input type="text" id="skill_name_${skillCount}" name="skill_name_${skillCount}"><br>
+                <br>
+                <label for="skill_cd_${skillCount}">冷却时间:</label>
+                <input type="number" id="skill_cd_${skillCount}" name="skill_cd_${skillCount}"><br>
+                <br>
+            `;
+            skillContainer.appendChild(newSkill);
+        }
+
+        async function handleSubmit(event, form, resultDiv) {
+            event.preventDefault();
+            const formData = new FormData(form);
+            const action = form.getAttribute('action');
+            const method = form.getAttribute('method');
+
+            let url = action;
+            let options = {
+                method: method,
+            };
+
+            if (method.toLowerCase() === 'get') {
+                const queryString = new URLSearchParams(formData).toString();
+                url = `${action}?${queryString}`;
+            } else {
+                options.body = formData;
+            }
+
+            try {
+                const response = await fetch(url, options);
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+
+                const data = await response.json();
+                displayResult(data, resultDiv);
+                if (method.toLowerCase() === 'post') {
+                    clearForm(form);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred: ' + error.message);
+            }
+        }
+
+        function clearForm(form) {
+            form.reset();
+        }
+
+        function displayResult(data, resultDiv) {
+            const infoDiv = document.getElementById(resultDiv);
+            if (data.message) {
+                infoDiv.innerHTML = `<p>${data.message}</p>`;
+                if (data.damage !== undefined) {
+                    infoDiv.innerHTML += `<p>造成伤害: ${data.damage}</p>`;
+                }
+                if (data.attacker && data.defender) {
+                    infoDiv.innerHTML += `
+                        <h3>进攻方状态</h3>
+                        <p>姓名: ${data.attacker.Name}</p>
+                        <p>阶级: ${data.attacker.Rank}</p>
+                        <p>力量: ${data.attacker.Strength}</p>
+                        <p>精神: ${data.attacker.Intelligence}</p>
+                        <p>敏捷: ${data.attacker.Agility}</p>
+                        <p>护甲: ${data.attacker.Armor}</p>
+                        <p>生命值: ${data.attacker.Health}</p>
+                        <h3>防守方状态</h3>
+                        <p>姓名: ${data.defender.Name}</p>
+                        <p>阶级: ${data.defender.Rank}</p>
+                        <p>力量: ${data.defender.Strength}</p>
+                        <p>精神: ${data.defender.Intelligence}</p>
+                        <p>敏捷: ${data.defender.Agility}</p>
+                        <p>护甲: ${data.defender.Armor}</p>
+                        <p>生命值: ${data.defender.Health}</p>
+                    `;
+                    // Display skills
+                    if (data.attacker_skills) {
+                        infoDiv.innerHTML += '<h3>进攻方技能</h3>';
+                        for (const skill in data.attacker_skills) {
+                            infoDiv.innerHTML += `<p>${skill}: ${data.attacker_skills[skill]}</p>`;
+                        }
+                    }
+                    if (data.defender_skills) {
+                        infoDiv.innerHTML += '<h3>防守方技能</h3>';
+                        for (const skill in data.defender_skills) {
+                            infoDiv.innerHTML += `<p>${skill}: ${data.defender_skills[skill]}</p>`;
+                        }
+                    }
+                }
+            } else {
+                infoDiv.innerHTML = `
+                    <h3>角色信息</h3>
+                    <p>姓名: ${data.Name}</p>
+                    <p>阶级: ${data.Rank}</p>
+                    <p>力量: ${data.Strength}</p>
+                    <p>精神: ${data.Intelligence}</p>
+                    <p>敏捷: ${data.Agility}</p>
+                    <p>护甲: ${data.Armor}</p>
+                    <p>生命值: ${data.Health}</p>
+                `;
+                // Display skills
+                for (const key in data) {
+                    if (key !== 'Name' && key !== 'Rank' && key !== 'Strength' && key !== 'Intelligence' && key !== 'Agility' && key !== 'Armor' && key !== 'Health') {
+                        infoDiv.innerHTML += `<p>${key}: ${data[key]}</p>`;
+                    }
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('action').addEventListener('change', function() {
+                if (this.value === 'skill') {
+                    document.getElementById('skill_selection').style.display = 'block';
+                } else {
+                    document.getElementById('skill_selection').style.display = 'none';
+                }
+            });
+        });
+    </script>
+</head>
+<body>
+    <h1>洛休顿战斗系统</h1>
+    
+    <div class="form-container">
+        <div>
+            <h2>查找角色 (** 为必填)</h2>
+            <form action="/get_character" method="get" onsubmit="handleSubmit(event, this, 'character-info')">
+                <label for="name">角色姓名**:</label>
+                <input type="text" id="name" name="name">
+                <input type="submit" value="查找">
+            </form>
+        </div>
+
+        <div>
+            <h2>创建或更新角色 (** 为必填)</h2>
+            <form action="/create_or_update_character" method="post" onsubmit="handleSubmit(event, this, 'character-info')">
+                <label for="name">角色姓名**:</label>
+                <input type="text" id="name" name="name"><br>
+                <br>
+                <label for="rank">阶级**:</label>
+                <input type="text" id="rank" name="rank"><br>
+                <br>
+                <label for="strength">力量:</label>
+                <input type="number" id="strength" name="strength"><br>
+                <br>
+                <label for="intelligence">精神:</label>
+                <input type="number" id="intelligence" name="intelligence"><br>
+                <br>
+                <label for="agility">敏捷:</label>
+                <input type="number" id="agility" name="agility"><br>
+                <br>
+                <label for="armor">护甲:</label>
+                <input type="number" id="armor" name="armor"><br>
+                <br>
+                <label for="health">生命值:</label>
+                <input type="number" id="health" name="health"><br>
+                <br>
+                <div id="skill-container"></div>
+                <button type="button" onclick="addSkill()">+ 添加技能</button>
+                <br><br>
+                <input type="submit" value="创建/更新">
+            </form>
+        </div>
+    </div>
+
+    <div id="character-info"></div>
+    
+    <h2>进入战斗：</h2>
+    <h3>添加角色 (未经添加的角色无法参与战斗)</h3>
+    <form action="/add_player" method="post" onsubmit="handleSubmit(event, this, 'battle-info')">
+        <label for="name">角色姓名**:</label>
+        <input type="text" id="name" name="name">
+        <input type="submit" value="添加玩家">
+    </form>
+
+    <div class="battle-container">
+        <div id="battle-panel">
+            <h3>战斗</h3>
+            <form action="/start_battle" method="post" onsubmit="handleSubmit(event, this, 'battle-info')">
+                <label for="attacker">进攻方**:</label>
+                <input type="text" id="attacker" name="attacker"><br>
+                <br>
+                <label for="defender">防守方**:</label>
+                <input type="text" id="defender" name="defender"><br>
+                <br>
+                <label for="action">行动**:</label>
+                <select id="action" name="action">
+                    <option value="attack">攻击</option>
+                    <option value="defend">防御</option>
+                    <option value="flee">逃跑</option>
+                    <option value="skill">释放技能</option>
+                </select><br>
+                <br>
+                <div id="skill_selection" style="display: none;">
+                    <label for="selected_skill">技能名称:</label>
+                    <input type="text" id="selected_skill" name="selected_skill"><br>
+                </div>
+                <br>
+                <label for="dice_value">骰子值**:</label>
+                <input type="number" id="dice_value" name="dice_value"><br>
+                <br>
+                <div class="grid-container">
+                    <div>
+                        <label for="hurt">造成伤害</label>
+                        <input type="checkbox" id="hurt" name="hurt" value="true"><br>
+                    </div>
+                    <div>
+                        <label for="distance">远距离攻击</label>
+                        <input type="checkbox" id="distance" name="distance" value="true"><br>
+                    </div>
+                    <div>
+                        <label for="aoe">AOE</label>
+                        <input type="checkbox" id="aoe" name="aoe" value="true"><br>
+                    </div>
+                    <div>
+                        <label for="sneak_attack">偷袭</label>
+                        <input type="checkbox" id="sneak_attack" name="sneak_attack" value="true"><br>
+                    </div>
+                    <div>
+                        <label for="defend">敌方防御/格挡</label>
+                        <input type="checkbox" id="defend" name="defend" value="true"><br>
+                    </div>
+                </div>
+                <br>
+                <label for="defined-damage">自定义伤害:</label>
+                <input type="number" id="defined-damage" name="defined-damage"><br>
+                <br>
+                <label for="damage_reduce">减伤(%)</label>
+                <input type="number" id="damage_reduce" name="damage_reduce"><br>
+                <br>
+                <label for="strength">力量:</label>
+                <input type="number" id="strength" name="strength"><br>
+                <br>
+                <label for="intelligence">精神:</label>
+                <input type="number" id="intelligence" name="intelligence"><br>
+                <br>
+                <label for="agility">敏捷:</label>
+                <input type="number" id="agility" name="agility"><br>
+                <br>
+                <label for="armor">护甲:</label>
+                <input type="number" id="armor" name="armor"><br>
+                <br>
+                <label for="health">生命值:</label>
+                <input type="number" id="health" name="health"><br>
+                <br>
+                <input type="submit" value="开始战斗">
+            </form>
+        </div>
+        <div id="battle-info"></div>
+    </div>
+
+    <form action="/next_round" method="post" onsubmit="handleSubmit(event, this, 'battle-info')">
+        <button type="submit">下一回合</button>
+    </form>
+    <form action="/end_battle" method="post" onsubmit="handleSubmit(event, this, 'battle-info')">
+        <button type="submit">结束战斗</button>
+    </form>
+</body>
+</html>
